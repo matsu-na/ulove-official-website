@@ -1,0 +1,6 @@
+node_modules
+dist
+.chrome-profile
+*.local
+.DS_Store
+shots
