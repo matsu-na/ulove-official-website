@@ -29,7 +29,7 @@ async function request(path, options = {}) {
     response = await fetch(`/api${path}`, init)
   } catch (error) {
     if (error.name === 'AbortError') throw error
-    throw new ApiError('无法连接模拟后端，请确认 API 服务已经启动', 0, null)
+    throw new ApiError('无法连接后端，请确认 API 服务已经启动', 0, null)
   }
 
   const contentType = response.headers.get('content-type') || ''

@@ -298,7 +298,7 @@ export default function Login() {
                 <Sparkles size={15} />
                 <strong>只是想看看？</strong>
               </div>
-              <p>使用演示账号快速进入。所有数据只保存在本地浏览器。</p>
+              <p>使用演示账号快速进入。登录状态保存在安全 Cookie 中，社区数据存储在演示数据库。</p>
               <div className="demo-card__row">
                 <code>demo@yougu.com</code>
                 <code>yougu2026</code>

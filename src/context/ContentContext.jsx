@@ -25,7 +25,7 @@ function BootScreen({ error, onRetry }) {
       ) : (
         <>
           <h1>正在打开山谷…</h1>
-          <p>从模拟后端加载展会内容与社区数据。</p>
+          <p>从 PostgreSQL 后端加载展会内容与社区数据。</p>
           <span className="boot-screen__loader" aria-hidden="true" />
         </>
       )}

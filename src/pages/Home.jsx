@@ -413,7 +413,7 @@ export default function Home() {
                     </div>
                   </div>
                   <h3>正在接收同好们的回声…</h3>
-                  <p>连接模拟后端后，这里会显示社区里的最新帖子。</p>
+                  <p>连接后端后，这里会显示社区里的最新帖子。</p>
                 </div>
               ) : (
                 communityPreview.map((post, index) => (

@@ -236,7 +236,7 @@ export default function Contact() {
                 {submitError && <p className="contact-submit-error" role="alert">{submitError}</p>}
 
                 <div className="contact-form__foot">
-                  <p>演示站点：消息会提交到本地模拟后端，不会真实发送。</p>
+                  <p>演示站点：消息会提交到演示数据库，不会真实发送。</p>
                   <button type="submit" className="btn btn--dark btn--lg" disabled={submitting}>
                     {submitting ? '发送中…' : <>发送消息 <Send size={17} /></>}
                   </button>

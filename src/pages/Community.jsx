@@ -447,7 +447,7 @@ export default function Community() {
                         <Bookmark size={18} fill={isSaved ? 'currentColor' : 'none'} />
                       </button>
                       <span className="post-card__hint">
-                        {user ? '点赞、评论与收藏会同步到模拟后端' : '登录后即可点赞、收藏和评论'}
+                        {user ? '点赞、评论与收藏会同步到演示数据库' : '登录后即可点赞、收藏和评论'}
                       </span>
                     </div>
 

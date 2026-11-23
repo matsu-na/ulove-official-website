@@ -1,29 +1,26 @@
 import express from 'express'
 import fs from 'node:fs'
 import path from 'node:path'
-import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import { getContent, initializeDatabase, pool } from './db.js'
 import {
-  EVENT,
-  NEWS_CATEGORIES,
-  news,
-  guests,
-  schedule,
-  faqs,
-  communityTopics,
-  stats,
-  timeline,
-} from './seed.js'
-import {
+  addComment,
+  authenticate,
+  createContactMessage,
+  createPost,
   createSession,
+  createUser,
   findSessionUser,
-  getDbPath,
-  hashPassword,
-  loadDb,
-  publicUser,
+  findUserByEmail,
+  getPostById,
+  healthCheck,
+  listPosts,
+  postExists,
   removeSession,
-  saveDb,
-  verifyPassword,
+  subscribeNewsletter,
+  toggleBookmark,
+  toggleLike,
+  updateUser,
 } from './store.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -33,28 +30,6 @@ const PORT = Number(process.env.PORT || 8787)
 const HOST = process.env.HOST || '127.0.0.1'
 const SESSION_COOKIE = 'yougu_session'
 
-const app = express()
-app.disable('x-powered-by')
-app.use(express.json({ limit: '256kb' }))
-app.use('/api', (_req, res, next) => {
-  res.setHeader('Cache-Control', 'no-store')
-  next()
-})
-
-const db = loadDb()
-
-const CONTENT = {
-  event: EVENT,
-  newsCategories: NEWS_CATEGORIES,
-  news,
-  guests,
-  schedule,
-  faqs,
-  communityTopics,
-  stats,
-  timeline,
-}
-
 const TOPIC_ART = {
   同人市集: { variant: 'sticker', accent: 'yellow' },
   找搭子: { variant: 'train', accent: 'sky' },
@@ -62,6 +37,14 @@ const TOPIC_ART = {
   舞台应援: { variant: 'sun', accent: 'violet' },
   社恐友好: { variant: 'guide', accent: 'lime' },
 }
+
+const app = express()
+app.disable('x-powered-by')
+app.use(express.json({ limit: '256kb' }))
+app.use('/api', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store')
+  next()
+})
 
 function text(value) {
   return typeof value === 'string' ? value.trim() : ''
@@ -96,17 +79,23 @@ function parseCookies(header = '') {
     if (index < 0) return cookies
     const key = pair.slice(0, index).trim()
     const value = pair.slice(index + 1).trim()
-    if (key) cookies[key] = decodeURIComponent(value)
+    try {
+      if (key) cookies[key] = decodeURIComponent(value)
+    } catch {
+      cookies[key] = value
+    }
     return cookies
   }, {})
 }
 
-app.use((req, _res, next) => {
-  const cookies = parseCookies(req.headers.cookie)
-  req.sessionToken = cookies[SESSION_COOKIE] || null
-  req.user = findSessionUser(db, req.sessionToken)
-  next()
-})
+app.use(
+  route(async (req, _res, next) => {
+    const cookies = parseCookies(req.headers.cookie)
+    req.sessionToken = cookies[SESSION_COOKIE] || null
+    req.user = await findSessionUser(req.sessionToken)
+    next()
+  }),
+)
 
 function setSessionCookie(res, token, remember) {
   const options = {
@@ -118,33 +107,6 @@ function setSessionCookie(res, token, remember) {
   res.cookie(SESSION_COOKIE, token, options)
 }
 
-function serializeComment(comment) {
-  return {
-    id: comment.id,
-    author: comment.author,
-    body: comment.body,
-    createdAt: comment.createdAt,
-  }
-}
-
-function serializePost(post, user) {
-  return {
-    id: post.id,
-    author: post.author,
-    authorId: post.authorId,
-    role: post.role,
-    topic: post.topic,
-    createdAt: post.createdAt,
-    title: post.title,
-    body: post.body,
-    art: post.art,
-    likes: post.likes,
-    likedByMe: user ? post.likedBy.includes(user.id) : false,
-    savedByMe: user ? (user.savedPostIds || []).includes(post.id) : false,
-    comments: (post.comments || []).map(serializeComment),
-  }
-}
-
 function requireUser(req, res) {
   if (!req.user) {
     fail(res, 401, '请先登录后再操作')
@@ -153,33 +115,35 @@ function requireUser(req, res) {
   return req.user
 }
 
-function findPost(id) {
-  return db.posts.find((post) => post.id === id)
+function sessionPayload(user) {
+  return { user }
 }
 
-function sessionPayload(user) {
-  return { user: publicUser(user) }
+async function content() {
+  return getContent()
 }
 
 /* ---------------- content ---------------- */
 app.get(
   '/api/content',
-  route((_req, res) => {
-    res.json(CONTENT)
+  route(async (_req, res) => {
+    res.json(await content())
   }),
 )
 
 app.get(
   '/api/news',
-  route((_req, res) => {
-    res.json({ categories: NEWS_CATEGORIES, articles: news })
+  route(async (_req, res) => {
+    const data = await content()
+    res.json({ categories: data.newsCategories, articles: data.news })
   }),
 )
 
 app.get(
   '/api/news/:id',
-  route((req, res) => {
-    const article = news.find((item) => item.id === req.params.id)
+  route(async (req, res) => {
+    const data = await content()
+    const article = data.news?.find((item) => item.id === req.params.id)
     if (!article) return fail(res, 404, '没有找到这篇资讯')
     res.json({ article })
   }),
@@ -195,17 +159,19 @@ app.get(
 
 app.post(
   '/api/auth/login',
-  route((req, res) => {
+  route(async (req, res) => {
     const emailValue = email(req.body?.email)
-    const password = text(req.body?.password)
+    const password = typeof req.body?.password === 'string' ? req.body.password : ''
     const remember = req.body?.remember !== false
     if (!isEmail(emailValue) || !password) return fail(res, 400, '请输入邮箱和密码')
 
-    const user = db.users.find((item) => item.email === emailValue)
-    if (!user) return fail(res, 401, '没有找到这个邮箱，试试先创建一个账号')
-    if (!verifyPassword(password, user.passwordHash)) return fail(res, 401, '密码不正确，再检查一下？')
+    const existing = await findUserByEmail(emailValue)
+    if (!existing) return fail(res, 401, '没有找到这个邮箱，试试先创建一个账号')
 
-    const { token } = createSession(db, user.id, remember)
+    const user = await authenticate(emailValue, password)
+    if (!user) return fail(res, 401, '密码不正确，再检查一下？')
+
+    const { token } = await createSession(user.id, remember)
     setSessionCookie(res, token, remember)
     res.json(sessionPayload(user))
   }),
@@ -213,7 +179,7 @@ app.post(
 
 app.post(
   '/api/auth/register',
-  route((req, res) => {
+  route(async (req, res) => {
     const nickname = text(req.body?.nickname)
     const emailValue = email(req.body?.email)
     const password = typeof req.body?.password === 'string' ? req.body.password : ''
@@ -221,33 +187,25 @@ app.post(
 
     if (nickname.length < 2 || nickname.length > 20) return fail(res, 400, '昵称需要 2—20 个字')
     if (!isEmail(emailValue)) return fail(res, 400, '请输入有效的邮箱地址')
-    if (password.length < 6) return fail(res, 400, '密码至少需要 6 位')
-    if (db.users.some((user) => user.email === emailValue)) {
-      return fail(res, 409, '这个邮箱已经加入山谷了，直接登录吧')
-    }
+    if (password.length < 6 || password.length > 128) return fail(res, 400, '密码需要 6—128 位')
+    if (await findUserByEmail(emailValue)) return fail(res, 409, '这个邮箱已经加入山谷了，直接登录吧')
 
-    const user = {
-      id: randomUUID(),
-      nickname,
-      email: emailValue,
-      passwordHash: hashPassword(password),
-      bio: '刚刚抵达山谷，正在寻找同频的人。',
-      joinedAt: new Date().toISOString().slice(0, 10),
-      savedPostIds: [],
+    try {
+      const user = await createUser({ nickname, email: emailValue, password })
+      const { token } = await createSession(user.id, remember)
+      setSessionCookie(res, token, remember)
+      res.status(201).json(sessionPayload(user))
+    } catch (error) {
+      if (error.code === '23505') return fail(res, 409, '这个邮箱已经加入山谷了，直接登录吧')
+      throw error
     }
-    db.users.push(user)
-    saveDb()
-
-    const { token } = createSession(db, user.id, remember)
-    setSessionCookie(res, token, remember)
-    res.status(201).json(sessionPayload(user))
   }),
 )
 
 app.post(
   '/api/auth/logout',
-  route((req, res) => {
-    removeSession(db, req.sessionToken)
+  route(async (req, res) => {
+    await removeSession(req.sessionToken)
     res.clearCookie(SESSION_COOKIE, { path: '/' })
     res.json({ ok: true })
   }),
@@ -255,154 +213,109 @@ app.post(
 
 app.patch(
   '/api/auth/profile',
-  route((req, res) => {
+  route(async (req, res) => {
     const user = requireUser(req, res)
     if (!user) return
     const nickname = text(req.body?.nickname)
     const bio = text(req.body?.bio)
     if (nickname) {
       if (nickname.length < 2 || nickname.length > 20) return fail(res, 400, '昵称需要 2—20 个字')
-      user.nickname = nickname
     }
-    if (typeof req.body?.bio === 'string') {
-      if (bio.length > 120) return fail(res, 400, '个人简介不能超过 120 个字')
-      user.bio = bio
+    if (typeof req.body?.bio === 'string' && bio.length > 120) {
+      return fail(res, 400, '个人简介不能超过 120 个字')
     }
-    saveDb()
-    res.json(sessionPayload(user))
+    const updated = await updateUser(user.id, {
+      nickname: nickname || undefined,
+      bio: typeof req.body?.bio === 'string' ? bio : undefined,
+    })
+    res.json(sessionPayload(updated))
   }),
 )
 
 /* ---------------- community ---------------- */
 app.get(
   '/api/community/posts',
-  route((req, res) => {
-    const user = req.user
-    const topic = text(req.query.topic)
+  route(async (req, res) => {
     const mine = req.query.mine === '1'
-    const sort = req.query.sort === 'latest' ? 'latest' : 'recommend'
-    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 100))
-
-    if (mine && !user) return fail(res, 401, '请先登录后再查看自己的帖子')
-
-    let posts = [...db.posts]
-    if (topic) posts = posts.filter((post) => post.topic === topic)
-    if (mine) posts = posts.filter((post) => post.authorId === user.id)
-
-    posts.sort((a, b) =>
-      sort === 'latest'
-        ? b.createdAt - a.createdAt
-        : b.likes + b.comments.length * 3 - (a.likes + a.comments.length * 3),
-    )
-
-    res.json({
-      posts: posts.slice(0, limit).map((post) => serializePost(post, user)),
-      total: posts.length,
+    if (mine && !req.user) return fail(res, 401, '请先登录后再查看自己的帖子')
+    const data = await listPosts({
+      userId: req.user?.id ?? null,
+      topic: text(req.query.topic),
+      mine,
+      sort: req.query.sort === 'latest' ? 'latest' : 'recommend',
+      limit: Math.min(100, Math.max(1, Number(req.query.limit) || 100)),
     })
+    res.json(data)
   }),
 )
 
 app.post(
   '/api/community/posts',
-  route((req, res) => {
+  route(async (req, res) => {
     const user = requireUser(req, res)
     if (!user) return
 
     const title = text(req.body?.title)
     const body = text(req.body?.body)
-    const topic = text(req.body?.topic) || communityTopics[0]?.name
-    const topicNames = communityTopics.map((item) => item.name)
+    const data = await content()
+    const topicNames = (data.communityTopics ?? []).map((item) => item.name)
+    const topic = text(req.body?.topic) || topicNames[0]
 
     if (title.length < 4 || title.length > 60) return fail(res, 400, '标题需要 4—60 个字')
     if (body.length < 10 || body.length > 500) return fail(res, 400, '正文需要 10—500 个字')
-    if (!topicNames.includes(topic)) return fail(res, 400, '请选择一个有效的话题')
+    if (!topic || !topicNames.includes(topic)) return fail(res, 400, '请选择一个有效的话题')
 
     const art = TOPIC_ART[topic] ?? { variant: 'star', accent: 'lime' }
-    const post = {
-      id: randomUUID(),
-      authorId: user.id,
-      author: user.nickname,
-      role: '山谷居民',
-      topic,
-      createdAt: Date.now(),
+    const post = await createPost({
+      user,
       title,
       body,
+      topic,
       art: { ...art, label: `${topic.toUpperCase()} / NEW` },
-      likes: 0,
-      likedBy: [],
-      comments: [],
-    }
-    db.posts.unshift(post)
-    saveDb()
-    res.status(201).json({ post: serializePost(post, user) })
+    })
+    res.status(201).json({ post })
   }),
 )
 
 app.post(
   '/api/community/posts/:id/like',
-  route((req, res) => {
+  route(async (req, res) => {
     const user = requireUser(req, res)
     if (!user) return
-    const post = findPost(req.params.id)
-    if (!post) return fail(res, 404, '这个帖子不存在')
-
-    const index = post.likedBy.indexOf(user.id)
-    if (index >= 0) {
-      post.likedBy.splice(index, 1)
-      post.likes = Math.max(0, post.likes - 1)
-    } else {
-      post.likedBy.push(user.id)
-      post.likes += 1
-    }
-    saveDb()
-    res.json({ post: serializePost(post, user) })
+    if (!(await postExists(req.params.id))) return fail(res, 404, '这个帖子不存在')
+    const post = await toggleLike(req.params.id, user)
+    res.json({ post })
   }),
 )
 
 app.post(
   '/api/community/posts/:id/bookmark',
-  route((req, res) => {
+  route(async (req, res) => {
     const user = requireUser(req, res)
     if (!user) return
-    const post = findPost(req.params.id)
-    if (!post) return fail(res, 404, '这个帖子不存在')
-
-    user.savedPostIds = user.savedPostIds || []
-    const index = user.savedPostIds.indexOf(post.id)
-    if (index >= 0) user.savedPostIds.splice(index, 1)
-    else user.savedPostIds.push(post.id)
-    saveDb()
-    res.json({ post: serializePost(post, user), saved: user.savedPostIds.includes(post.id) })
+    if (!(await postExists(req.params.id))) return fail(res, 404, '这个帖子不存在')
+    const data = await toggleBookmark(req.params.id, user)
+    res.json(data)
   }),
 )
 
 app.post(
   '/api/community/posts/:id/comments',
-  route((req, res) => {
+  route(async (req, res) => {
     const user = requireUser(req, res)
     if (!user) return
-    const post = findPost(req.params.id)
-    if (!post) return fail(res, 404, '这个帖子不存在')
-
+    if (!(await postExists(req.params.id))) return fail(res, 404, '这个帖子不存在')
     const body = text(req.body?.body)
     if (body.length < 1 || body.length > 300) return fail(res, 400, '评论需要 1—300 个字')
-
-    post.comments.push({
-      id: randomUUID(),
-      authorId: user.id,
-      author: user.nickname,
-      body,
-      createdAt: Date.now(),
-    })
-    saveDb()
-    res.status(201).json({ post: serializePost(post, user) })
+    const post = await addComment(req.params.id, user, body)
+    res.status(201).json({ post })
   }),
 )
 
 /* ---------------- contact + newsletter ---------------- */
 app.post(
   '/api/contact/messages',
-  route((req, res) => {
+  route(async (req, res) => {
     const name = text(req.body?.name)
     const emailValue = email(req.body?.email)
     const topic = text(req.body?.topic)
@@ -415,49 +328,40 @@ app.post(
     if (message.length < 10 || message.length > 500) return fail(res, 400, '消息需要 10—500 个字')
     if (!consent) return fail(res, 400, '请先同意我们使用这些信息来回复你')
 
-    const record = {
-      id: randomUUID(),
+    const record = await createContactMessage({
       name,
       email: emailValue,
       topic,
       message,
       consent,
-      createdAt: new Date().toISOString(),
-    }
-    db.messages.unshift(record)
-    saveDb()
-    res.status(201).json({ id: record.id, createdAt: record.createdAt, message: '消息已送达山谷' })
+    })
+    res.status(201).json({ ...record, message: '消息已送达山谷' })
   }),
 )
 
 app.post(
   '/api/newsletter/subscriptions',
-  route((req, res) => {
+  route(async (req, res) => {
     const emailValue = email(req.body?.email)
     if (!isEmail(emailValue)) return fail(res, 400, '请输入有效的邮箱地址')
-    const existing = db.subscriptions.find((item) => item.email === emailValue)
-    if (existing) {
-      return res.json({ subscribed: true, alreadySubscribed: true })
-    }
-    db.subscriptions.unshift({
-      id: randomUUID(),
-      email: emailValue,
-      createdAt: new Date().toISOString(),
+    const data = await subscribeNewsletter(emailValue)
+    res.status(data.alreadySubscribed ? 200 : 201).json({
+      subscribed: true,
+      alreadySubscribed: data.alreadySubscribed,
     })
-    saveDb()
-    res.status(201).json({ subscribed: true, alreadySubscribed: false })
   }),
 )
 
 /* ---------------- system ---------------- */
 app.get(
   '/api/health',
-  route((_req, res) => {
+  route(async (_req, res) => {
+    const time = await healthCheck()
     res.json({
       ok: true,
-      service: 'yougu-mock-api',
-      storage: getDbPath(),
-      time: new Date().toISOString(),
+      service: 'yougu-postgres-api',
+      database: 'postgresql',
+      time,
     })
   }),
 )
@@ -477,20 +381,36 @@ if (fs.existsSync(DIST_DIR)) {
 app.use((error, _req, res, _next) => {
   console.error('[api]', error)
   if (res.headersSent) return
+  if (error.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: '请求数据不是有效的 JSON' })
+  }
+  if (error.code === '23505') {
+    return res.status(409).json({ error: '这条记录已经存在' })
+  }
   res.status(500).json({ error: '服务器开小差了，请稍后再试' })
 })
 
-const server = app.listen(PORT, HOST, () => {
-  console.log(`[yougu] mock API ready at http://${HOST}:${PORT}`)
-  console.log(`[yougu] data file: ${getDbPath()}`)
-  if (fs.existsSync(DIST_DIR)) {
-    console.log(`[yougu] static build: http://${HOST}:${PORT}/`)
+try {
+  await initializeDatabase()
+  console.log('[yougu] PostgreSQL connected')
+  const server = app.listen(PORT, HOST, () => {
+    console.log(`[yougu] API ready at http://${HOST}:${PORT}`)
+    if (fs.existsSync(DIST_DIR)) {
+      console.log(`[yougu] static build: http://${HOST}:${PORT}/`)
+    }
+  })
+
+  async function shutdown() {
+    server.close(async () => {
+      await pool.end().catch(() => {})
+      process.exit(0)
+    })
   }
-})
 
-function shutdown() {
-  server.close(() => process.exit(0))
+  process.on('SIGINT', shutdown)
+  process.on('SIGTERM', shutdown)
+} catch (error) {
+  console.error('[yougu] failed to start:', error)
+  await pool.end().catch(() => {})
+  process.exit(1)
 }
-
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
