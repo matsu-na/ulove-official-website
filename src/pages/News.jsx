@@ -4,13 +4,16 @@ import { Link } from 'react-router-dom'
 import ArtCover from '../components/ArtCover.jsx'
 import NewsCard from '../components/NewsCard.jsx'
 import Reveal from '../components/Reveal.jsx'
-import { NEWS_CATEGORIES, news } from '../data.js'
+import { api } from '../api.js'
+import { useContent } from '../context/ContentContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 
 export default function News() {
+  const { news, newsCategories } = useContent()
   const [category, setCategory] = useState('全部')
   const [query, setQuery] = useState('')
   const [email, setEmail] = useState('')
+  const [subscribing, setSubscribing] = useState(false)
   const { toast } = useToast()
 
   const filtered = useMemo(() => {
@@ -24,7 +27,7 @@ export default function News() {
         article.tags.some((tag) => tag.toLowerCase().includes(q))
       return inCategory && inSearch
     })
-  }, [category, query])
+  }, [category, query, news])
 
   const showFeature = category === '全部' && !query.trim()
   const featured = news.find((article) => article.featured)
@@ -35,14 +38,25 @@ export default function News() {
     setQuery('')
   }
 
-  const subscribe = (event) => {
+  const subscribe = async (event) => {
     event.preventDefault()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       toast('请输入一个有效的邮箱地址', 'error')
       return
     }
-    toast('订阅成功，山谷的新消息会先找到你', 'success')
-    setEmail('')
+    setSubscribing(true)
+    try {
+      const data = await api.post('/newsletter/subscriptions', { email })
+      toast(
+        data.alreadySubscribed ? '这个邮箱已经在山谷来信名单里了' : '订阅成功，山谷的新消息会先找到你',
+        'success',
+      )
+      setEmail('')
+    } catch (error) {
+      toast(error.message, 'error')
+    } finally {
+      setSubscribing(false)
+    }
   }
 
   return (
@@ -56,11 +70,11 @@ export default function News() {
           </div>
           <div className="news-hero__card">
             <span className="news-hero__card-label">LIVE UPDATE</span>
-            <div className="news-hero__card-number">08</div>
+            <div className="news-hero__card-number">{String(news.length).padStart(2, '0')}</div>
             <span>篇最新情报</span>
             <div className="news-hero__card-line">
               <i />
-              <span>更新于 2026.11.20</span>
+              <span>更新于 {news[0]?.date ?? '—'}</span>
             </div>
             <StarMarkSmall />
           </div>
@@ -69,7 +83,7 @@ export default function News() {
 
       <section className="container news-controls">
         <div className="filter-row" role="tablist" aria-label="资讯分类">
-          {NEWS_CATEGORIES.map((item) => (
+          {newsCategories.map((item) => (
             <button
               key={item}
               type="button"
@@ -186,7 +200,9 @@ export default function News() {
             onChange={(event) => setEmail(event.target.value)}
             aria-label="邮箱地址"
           />
-          <button type="submit" className="btn btn--dark">订阅来信 <ArrowUpRight size={16} /></button>
+          <button type="submit" className="btn btn--dark" disabled={subscribing}>
+            {subscribing ? '订阅中…' : '订阅来信'} {!subscribing && <ArrowUpRight size={16} />}
+          </button>
         </form>
       </section>
 

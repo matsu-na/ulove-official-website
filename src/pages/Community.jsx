@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowUpRight,
@@ -18,30 +18,11 @@ import {
 import ArtCover from '../components/ArtCover.jsx'
 import Reveal from '../components/Reveal.jsx'
 import { StarMark } from '../components/Logo.jsx'
-import { communityTopics, EVENT, seedPosts } from '../data.js'
+import { api } from '../api.js'
 import { useAuth } from '../context/AuthContext.jsx'
+import { useContent } from '../context/ContentContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { countdownTo, formatRelativeTime, getAvatarTone, getInitials } from '../utils.js'
-
-const POSTS_KEY = 'yougu_posts_v1'
-
-const topicArt = {
-  同人市集: { variant: 'sticker', accent: 'yellow' },
-  找搭子: { variant: 'train', accent: 'sky' },
-  痛包研究所: { variant: 'painbag', accent: 'coral' },
-  舞台应援: { variant: 'sun', accent: 'violet' },
-  社恐友好: { variant: 'guide', accent: 'lime' },
-}
-
-function loadPosts() {
-  try {
-    const stored = JSON.parse(localStorage.getItem(POSTS_KEY))
-    if (Array.isArray(stored) && stored.length > 0) return stored
-  } catch {
-    // Use fresh seed data when local data is unavailable.
-  }
-  return seedPosts
-}
 
 function memberId(email = '') {
   let total = 0
@@ -58,66 +39,51 @@ const onlinePeople = [
 ]
 
 export default function Community() {
-  const { user, logout } = useAuth()
+  const { user, loading: authLoading, logout } = useAuth()
+  const { communityTopics, event } = useContent()
   const { toast } = useToast()
   const navigate = useNavigate()
-  const [posts, setPosts] = useState(loadPosts)
+  const [posts, setPosts] = useState([])
+  const [postsLoading, setPostsLoading] = useState(true)
+  const [postsError, setPostsError] = useState('')
   const [activeTab, setActiveTab] = useState('recommend')
   const [activeTopic, setActiveTopic] = useState('')
   const [composerOpen, setComposerOpen] = useState(false)
-  const [draft, setDraft] = useState({ title: '', body: '', topic: '同人市集' })
+  const [draft, setDraft] = useState({ title: '', body: '', topic: communityTopics[0]?.name ?? '同人市集' })
   const [draftError, setDraftError] = useState('')
+  const [submittingPost, setSubmittingPost] = useState(false)
   const [commentDrafts, setCommentDrafts] = useState({})
+  const [commentBusy, setCommentBusy] = useState({})
   const [openComments, setOpenComments] = useState({})
-  const [saved, setSaved] = useState(() => {
-    if (!user) return []
+
+  const loadPosts = useCallback(async () => {
+    setPostsLoading(true)
+    setPostsError('')
     try {
-      return JSON.parse(localStorage.getItem(`yougu_saved_${user.email}`) || '[]')
-    } catch {
-      return []
+      const data = await api.get('/community/posts')
+      setPosts(data.posts)
+    } catch (error) {
+      setPostsError(error.message)
+    } finally {
+      setPostsLoading(false)
     }
-  })
+  }, [])
 
   useEffect(() => {
-    try {
-      localStorage.setItem(POSTS_KEY, JSON.stringify(posts))
-    } catch {
-      // Ignore storage failures in private browsing.
-    }
-  }, [posts])
-
-  useEffect(() => {
-    if (!user) return
-    try {
-      localStorage.setItem(`yougu_saved_${user.email}`, JSON.stringify(saved))
-    } catch {
-      // Ignore storage failures.
-    }
-  }, [saved, user])
-
-  useEffect(() => {
-    if (!user) {
-      setSaved([])
-      return
-    }
-    try {
-      const stored = JSON.parse(localStorage.getItem(`yougu_saved_${user.email}`) || '[]')
-      setSaved(Array.isArray(stored) ? stored : [])
-    } catch {
-      setSaved([])
-    }
-  }, [user])
+    if (!authLoading) loadPosts()
+  }, [authLoading, loadPosts, user?.id])
 
   const myPosts = useMemo(
-    () => posts.filter((post) => post.email === user?.email),
+    () => posts.filter((post) => post.authorId === user?.id),
     [posts, user],
   )
+  const savedCount = useMemo(() => posts.filter((post) => post.savedByMe).length, [posts])
 
   const filteredPosts = useMemo(() => {
     let result = [...posts]
     if (activeTopic) result = result.filter((post) => post.topic === activeTopic)
-    if (activeTab === 'mine') result = result.filter((post) => post.email === user?.email)
-    if (activeTab === 'latest') result.sort((a, b) => b.time - a.time)
+    if (activeTab === 'mine') result = result.filter((post) => post.authorId === user?.id)
+    if (activeTab === 'latest') result.sort((a, b) => b.createdAt - a.createdAt)
     else result.sort((a, b) => b.likes + b.comments.length * 3 - (a.likes + a.comments.length * 3))
     return result
   }, [posts, activeTopic, activeTab, user])
@@ -127,35 +93,38 @@ export default function Community() {
     navigate('/login', { state: { from: '/community', intent } })
   }
 
-  const toggleLike = (postId) => {
+  const replacePost = (nextPost) => {
+    setPosts((current) => current.map((post) => (post.id === nextPost.id ? nextPost : post)))
+  }
+
+  const toggleLike = async (postId) => {
     if (!user) {
       requireAuth('点赞')
       return
     }
-    setPosts((current) =>
-      current.map((post) => {
-        if (post.id !== postId) return post
-        const liked = post.likedBy.includes(user.email)
-        return {
-          ...post,
-          likes: post.likes + (liked ? -1 : 1),
-          likedBy: liked ? post.likedBy.filter((email) => email !== user.email) : [...post.likedBy, user.email],
-        }
-      }),
-    )
+    try {
+      const data = await api.post(`/community/posts/${postId}/like`)
+      replacePost(data.post)
+    } catch (error) {
+      toast(error.message, 'error')
+    }
   }
 
-  const toggleSaved = (postId) => {
+  const toggleSaved = async (postId) => {
     if (!user) {
       requireAuth('收藏帖子')
       return
     }
-    const isSaved = saved.includes(postId)
-    setSaved((current) => (isSaved ? current.filter((id) => id !== postId) : [...current, postId]))
-    toast(isSaved ? '已取消收藏' : '已收藏，稍后在山谷里继续看', isSaved ? 'default' : 'success')
+    try {
+      const data = await api.post(`/community/posts/${postId}/bookmark`)
+      replacePost(data.post)
+      toast(data.saved ? '已收藏，稍后在山谷里继续看' : '已取消收藏', data.saved ? 'success' : 'default')
+    } catch (error) {
+      toast(error.message, 'error')
+    }
   }
 
-  const submitPost = (event) => {
+  const submitPost = async (event) => {
     event.preventDefault()
     if (!user) {
       requireAuth('发帖')
@@ -169,64 +138,51 @@ export default function Community() {
       setDraftError('正文至少写 10 个字，让大家知道你在想什么')
       return
     }
-    const art = topicArt[draft.topic] ?? { variant: 'star', accent: 'lime' }
-    const newPost = {
-      id: `post-${Date.now()}`,
-      author: user.nickname,
-      email: user.email,
-      role: '山谷居民',
-      topic: draft.topic,
-      time: Date.now(),
-      title: draft.title.trim(),
-      body: draft.body.trim(),
-      art: { ...art, label: `${draft.topic.toUpperCase()} / NEW` },
-      likes: 0,
-      likedBy: [],
-      comments: [],
-    }
-    setPosts((current) => [newPost, ...current])
-    setDraft({ title: '', body: '', topic: draft.topic })
+    if (submittingPost) return
+
+    setSubmittingPost(true)
     setDraftError('')
-    setComposerOpen(false)
-    setActiveTab('latest')
-    setActiveTopic('')
-    toast('发布成功，山谷已经听到你的回声', 'success')
+    try {
+      const data = await api.post('/community/posts', draft)
+      setPosts((current) => [data.post, ...current])
+      setDraft({ title: '', body: '', topic: draft.topic })
+      setComposerOpen(false)
+      setActiveTab('latest')
+      setActiveTopic('')
+      toast('发布成功，山谷已经听到你的回声', 'success')
+    } catch (error) {
+      setDraftError(error.message)
+    } finally {
+      setSubmittingPost(false)
+    }
   }
 
-  const addComment = (postId) => {
+  const addComment = async (postId) => {
     if (!user) {
       requireAuth('评论')
       return
     }
-    const text = (commentDrafts[postId] || '').trim()
-    if (!text) return
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              comments: [
-                ...post.comments,
-                {
-                  id: `comment-${Date.now()}`,
-                  author: user.nickname,
-                  body: text,
-                  time: Date.now(),
-                },
-              ],
-            }
-          : post,
-      ),
-    )
-    setCommentDrafts((current) => ({ ...current, [postId]: '' }))
-    setOpenComments((current) => ({ ...current, [postId]: true }))
-    toast('评论已发布', 'success')
+    const body = (commentDrafts[postId] || '').trim()
+    if (!body || commentBusy[postId]) return
+
+    setCommentBusy((current) => ({ ...current, [postId]: true }))
+    try {
+      const data = await api.post(`/community/posts/${postId}/comments`, { body })
+      replacePost(data.post)
+      setCommentDrafts((current) => ({ ...current, [postId]: '' }))
+      setOpenComments((current) => ({ ...current, [postId]: true }))
+      toast('评论已发布', 'success')
+    } catch (error) {
+      toast(error.message, 'error')
+    } finally {
+      setCommentBusy((current) => ({ ...current, [postId]: false }))
+    }
   }
 
   const userSince = user?.joinedAt
     ? Math.max(1, Math.ceil((Date.now() - new Date(user.joinedAt).getTime()) / 86400000))
     : 0
-  const daysToEvent = countdownTo(EVENT.target).days
+  const daysToEvent = countdownTo(event.target).days
 
   return (
     <div className="community-page">
@@ -391,15 +347,29 @@ export default function Community() {
               {draftError && <p className="composer__error">{draftError}</p>}
               <div className="composer__foot">
                 <span>发帖即表示同意《山谷社区公约》</span>
-                <button type="submit" className="btn btn--dark">
-                  发布到山谷 <Send size={16} />
+                <button type="submit" className="btn btn--dark" disabled={submittingPost}>
+                  {submittingPost ? '发布中…' : <>发布到山谷 <Send size={16} /></>}
                 </button>
               </div>
             </form>
           )}
 
           <div className="feed">
-            {filteredPosts.length === 0 ? (
+            {postsLoading ? (
+              <div className="community-loading">
+                <span className="boot-screen__loader" aria-hidden="true" />
+                <p>正在从山谷后端取回回声…</p>
+              </div>
+            ) : postsError ? (
+              <div className="community-empty">
+                <span>!</span>
+                <h3>暂时没能取回帖子</h3>
+                <p>{postsError}</p>
+                <button type="button" className="btn btn--dark btn--sm" onClick={loadPosts}>
+                  重新连接
+                </button>
+              </div>
+            ) : filteredPosts.length === 0 ? (
               <div className="community-empty">
                 <span>✳</span>
                 <h3>这里还没有回声</h3>
@@ -414,8 +384,8 @@ export default function Community() {
               </div>
             ) : (
               filteredPosts.map((post, index) => {
-                const liked = user ? post.likedBy.includes(user.email) : false
-                const isSaved = saved.includes(post.id)
+                const liked = post.likedByMe
+                const isSaved = post.savedByMe
                 const commentsOpen = openComments[post.id]
                 const visibleComments = commentsOpen ? post.comments : post.comments.slice(0, 2)
                 return (
@@ -430,7 +400,7 @@ export default function Community() {
                       </div>
                       <div className="post-card__meta">
                         <span className="post-card__topic"># {post.topic}</span>
-                        <span>{formatRelativeTime(post.time)}</span>
+                        <span>{formatRelativeTime(post.createdAt)}</span>
                       </div>
                     </div>
 
@@ -477,7 +447,7 @@ export default function Community() {
                         <Bookmark size={18} fill={isSaved ? 'currentColor' : 'none'} />
                       </button>
                       <span className="post-card__hint">
-                        {user ? '在真实的山谷里，每条回声都会被看见' : '登录后即可点赞、收藏和评论'}
+                        {user ? '点赞、评论与收藏会同步到模拟后端' : '登录后即可点赞、收藏和评论'}
                       </span>
                     </div>
 
@@ -500,7 +470,7 @@ export default function Community() {
                             <div>
                               <div className="comment__head">
                                 <strong>{comment.author}</strong>
-                                <span>{formatRelativeTime(comment.time)}</span>
+                                <span>{formatRelativeTime(comment.createdAt)}</span>
                               </div>
                               <p>{comment.body}</p>
                             </div>
@@ -531,6 +501,7 @@ export default function Community() {
                                   type="button"
                                   onClick={() => addComment(post.id)}
                                   aria-label="发布评论"
+                                  disabled={commentBusy[post.id]}
                                 >
                                   <Send size={16} />
                                 </button>
@@ -558,7 +529,7 @@ export default function Community() {
                 <span className={`avatar avatar--xl avatar--${getAvatarTone(user.nickname)}`}>
                   {getInitials(user.nickname)}
                 </span>
-                <button type="button" className="profile-card__logout" onClick={() => { logout(); toast('已退出登录，山谷会记得你', 'default') }}>
+                <button type="button" className="profile-card__logout" onClick={async () => { await logout(); toast('已退出登录，山谷会记得你', 'default') }}>
                   退出
                 </button>
               </div>
@@ -567,7 +538,7 @@ export default function Community() {
               <div className="profile-card__stats">
                 <div><strong>{myPosts.length}</strong><span>帖子</span></div>
                 <div><strong>{myPosts.reduce((sum, post) => sum + post.likes, 0)}</strong><span>获赞</span></div>
-                <div><strong>{saved.length}</strong><span>收藏</span></div>
+                <div><strong>{savedCount}</strong><span>收藏</span></div>
               </div>
               <div className="profile-card__foot">
                 <span>DAY {userSince}</span>

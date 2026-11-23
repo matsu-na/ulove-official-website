@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
@@ -24,7 +24,9 @@ import SectionHeading from '../components/SectionHeading.jsx'
 import Reveal from '../components/Reveal.jsx'
 import NewsCard from '../components/NewsCard.jsx'
 import { StarMark } from '../components/Logo.jsx'
-import { guests, news, schedule, seedPosts } from '../data.js'
+import { api } from '../api.js'
+import { useContent } from '../context/ContentContext.jsx'
+import { formatRelativeTime } from '../utils.js'
 
 const tickerItems = ['同人市集', '声优舞台', '原画特展', '夜场 LIVE', '痛车巡游', '独立游戏', '谷子交换', '创作者大会']
 
@@ -98,8 +100,26 @@ const highlights = [
 ]
 
 export default function Home() {
+  const { event, news, guests, schedule, stats } = useContent()
   const [activeDay, setActiveDay] = useState(0)
+  const [communityPreview, setCommunityPreview] = useState([])
   const day = schedule[activeDay]
+  const expected = stats.find((item) => item.label === '预计同好') ?? stats[stats.length - 1]
+
+  useEffect(() => {
+    let active = true
+    api
+      .get('/community/posts?sort=recommend&limit=2')
+      .then((data) => {
+        if (active) setCommunityPreview(data.posts)
+      })
+      .catch(() => {
+        if (active) setCommunityPreview([])
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   return (
     <>
@@ -148,15 +168,15 @@ export default function Home() {
             <Reveal delay={300} className="hero__meta">
               <div>
                 <CalendarDays size={18} />
-                <span><small>DATE</small>12.19 — 12.21</span>
+                <span><small>DATE</small>{event.dateShort}</span>
               </div>
               <div>
                 <MapPin size={18} />
-                <span><small>VENUE</small>上海 · 国家会展中心</span>
+                <span><small>VENUE</small>{event.venue}</span>
               </div>
               <div>
                 <Users size={18} />
-                <span><small>EXPECTED</small>30,000+ 同好</span>
+                <span><small>EXPECTED</small>{expected?.value}{expected?.unit} 同好</span>
               </div>
             </Reveal>
           </div>
@@ -383,25 +403,39 @@ export default function Home() {
               <span className="status-dot status-dot--lime" />
             </div>
             <div className="community-mock__body">
-              {seedPosts.slice(0, 2).map((post, index) => (
-                <div className={`mock-post mock-post--${index + 1}`} key={post.id}>
+              {communityPreview.length === 0 ? (
+                <div className="mock-post mock-post--loading">
                   <div className="mock-post__head">
-                    <span className={`mock-avatar mock-avatar--${index === 0 ? 'coral' : 'violet'}`}>{post.author.slice(0, 1)}</span>
+                    <span className="mock-avatar mock-avatar--coral">谷</span>
                     <div>
-                      <strong>{post.author}</strong>
-                      <small>{post.topic}</small>
+                      <strong>山谷正在加载</strong>
+                      <small>YOUGU COMMUNITY</small>
                     </div>
-                    <span className="mock-post__time">刚刚</span>
                   </div>
-                  <h3>{post.title}</h3>
-                  <p>{post.body.slice(0, 48)}…</p>
-                  <div className="mock-post__foot">
-                    <span><Heart size={14} /> {post.likes}</span>
-                    <span><MessageCircle size={14} /> {post.comments.length}</span>
-                    <span className="mock-post__tag">#{post.topic}</span>
-                  </div>
+                  <h3>正在接收同好们的回声…</h3>
+                  <p>连接模拟后端后，这里会显示社区里的最新帖子。</p>
                 </div>
-              ))}
+              ) : (
+                communityPreview.map((post, index) => (
+                  <div className={`mock-post mock-post--${index + 1}`} key={post.id}>
+                    <div className="mock-post__head">
+                      <span className={`mock-avatar mock-avatar--${index === 0 ? 'coral' : 'violet'}`}>{post.author.slice(0, 1)}</span>
+                      <div>
+                        <strong>{post.author}</strong>
+                        <small>{post.topic}</small>
+                      </div>
+                      <span className="mock-post__time">{formatRelativeTime(post.createdAt)}</span>
+                    </div>
+                    <h3>{post.title}</h3>
+                    <p>{post.body.slice(0, 48)}…</p>
+                    <div className="mock-post__foot">
+                      <span><Heart size={14} /> {post.likes}</span>
+                      <span><MessageCircle size={14} /> {post.comments.length}</span>
+                      <span className="mock-post__tag">#{post.topic}</span>
+                    </div>
+                  </div>
+                ))
+              )}
               <div className="mock-float">
                 <Sparkles size={18} />
                 <span>今日 128 条新回声</span>
@@ -414,8 +448,8 @@ export default function Home() {
       <section className="final-cta">
         <div className="final-cta__inner container">
           <div className="final-cta__meta">
-            <span>YOUGU EXPO · VOL.04</span>
-            <span>2026.12.19—12.21</span>
+            <span>{event.nameEn} · {event.edition}</span>
+            <span>{event.dates}</span>
           </div>
           <h2>
             <span>山谷见</span>

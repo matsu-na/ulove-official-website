@@ -17,7 +17,7 @@ export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [userMenu, setUserMenu] = useState(false)
-  const { user, logout } = useAuth()
+  const { user, loading, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const menuRef = useRef(null)
@@ -49,9 +49,9 @@ export default function Navbar() {
     return () => document.removeEventListener('pointerdown', onClick)
   }, [])
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
     setUserMenu(false)
+    await logout()
     navigate('/')
   }
 
@@ -93,7 +93,11 @@ export default function Navbar() {
               购票
             </Link>
 
-            {user ? (
+            {loading ? (
+              <span className="nav-auth-loading" aria-label="正在加载登录状态">
+                <span />
+              </span>
+            ) : user ? (
               <div className="user-menu" ref={menuRef}>
                 <button
                   type="button"

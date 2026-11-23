@@ -16,7 +16,8 @@ import {
 } from 'lucide-react'
 import Reveal from '../components/Reveal.jsx'
 import SectionHeading from '../components/SectionHeading.jsx'
-import { faqs } from '../data.js'
+import { api } from '../api.js'
+import { useContent } from '../context/ContentContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 
 const initialForm = { name: '', email: '', topic: '购票咨询', message: '', consent: false }
@@ -24,14 +25,18 @@ const initialForm = { name: '', email: '', topic: '购票咨询', message: '', c
 const topics = ['购票咨询', '同人市集', '媒体与商务', '志愿者', '无障碍服务', '其他']
 
 export default function Contact() {
+  const { faqs } = useContent()
   const [form, setForm] = useState(initialForm)
   const [errors, setErrors] = useState({})
   const [submitted, setSubmitted] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const [openFaq, setOpenFaq] = useState(0)
   const { toast } = useToast()
 
   const update = (field, value) => {
     setForm((current) => ({ ...current, [field]: value }))
+    setSubmitError('')
     if (errors[field]) setErrors((current) => ({ ...current, [field]: '' }))
   }
 
@@ -45,26 +50,30 @@ export default function Contact() {
     return Object.keys(next).length === 0
   }
 
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault()
-    if (!validate()) return
+    if (!validate() || submitting) return
+    setSubmitting(true)
+    setSubmitError('')
     try {
-      const stored = JSON.parse(localStorage.getItem('yougu_messages') || '[]')
-      localStorage.setItem(
-        'yougu_messages',
-        JSON.stringify([...stored, { ...form, createdAt: new Date().toISOString() }]),
-      )
-    } catch {
-      // A demo submission should not fail if storage is unavailable.
+      await api.post('/contact/messages', form)
+      setSubmitted(true)
+      toast('消息已送达山谷，我们会在 3 个工作日内回复', 'success')
+      window.setTimeout(() => {
+        document.querySelector('.contact-success')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }, 60)
+    } catch (error) {
+      setSubmitError(error.message)
+      toast(error.message, 'error')
+    } finally {
+      setSubmitting(false)
     }
-    setSubmitted(true)
-    toast('消息已送达山谷，我们会在 3 个工作日内回复', 'success')
-    window.scrollTo({ top: document.querySelector('.contact-form-card')?.offsetTop - 120, behavior: 'smooth' })
   }
 
   const reset = () => {
     setForm(initialForm)
     setErrors({})
+    setSubmitError('')
     setSubmitted(false)
   }
 
@@ -224,11 +233,12 @@ export default function Contact() {
                   <span>我同意有谷使用以上信息与我联系，信息仅用于回复本次咨询。</span>
                 </label>
                 {errors.consent && <small className="field-error">{errors.consent}</small>}
+                {submitError && <p className="contact-submit-error" role="alert">{submitError}</p>}
 
                 <div className="contact-form__foot">
-                  <p>演示站点：提交内容仅保存在本地浏览器，不会真实发送。</p>
-                  <button type="submit" className="btn btn--dark btn--lg">
-                    发送消息 <Send size={17} />
+                  <p>演示站点：消息会提交到本地模拟后端，不会真实发送。</p>
+                  <button type="submit" className="btn btn--dark btn--lg" disabled={submitting}>
+                    {submitting ? '发送中…' : <>发送消息 <Send size={17} /></>}
                   </button>
                 </div>
               </form>

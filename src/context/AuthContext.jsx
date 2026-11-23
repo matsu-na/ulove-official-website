@@ -1,41 +1,63 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { authStore } from '../auth.js'
+import { api } from '../api.js'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(() => authStore.currentUser)
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    return authStore.subscribe(() => setUser(authStore.currentUser))
+    let active = true
+
+    api
+      .get('/auth/me')
+      .then((data) => {
+        if (active) setUser(data.user)
+      })
+      .catch(() => {
+        if (active) setUser(null)
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+
+    return () => {
+      active = false
+    }
   }, [])
 
-  const login = useCallback((credentials) => {
-    const nextUser = authStore.login(credentials)
-    setUser(nextUser)
-    return nextUser
+  const login = useCallback(async (credentials) => {
+    const data = await api.post('/auth/login', credentials)
+    setUser(data.user)
+    return data.user
   }, [])
 
-  const register = useCallback((payload) => {
-    const nextUser = authStore.register(payload)
-    setUser(nextUser)
-    return nextUser
+  const register = useCallback(async (payload) => {
+    const data = await api.post('/auth/register', payload)
+    setUser(data.user)
+    return data.user
   }, [])
 
-  const logout = useCallback(() => {
-    authStore.logout()
-    setUser(null)
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/auth/logout')
+    } catch {
+      // The local session should still be cleared if the mock API is unavailable.
+    } finally {
+      setUser(null)
+    }
   }, [])
 
-  const updateProfile = useCallback((patch) => {
-    const nextUser = authStore.updateProfile(patch)
-    setUser(nextUser)
-    return nextUser
+  const updateProfile = useCallback(async (patch) => {
+    const data = await api.patch('/auth/profile', patch)
+    setUser(data.user)
+    return data.user
   }, [])
 
   const value = useMemo(
-    () => ({ user, isAuthenticated: Boolean(user), login, register, logout, updateProfile }),
-    [user, login, register, logout, updateProfile],
+    () => ({ user, isAuthenticated: Boolean(user), loading, login, register, logout, updateProfile }),
+    [user, loading, login, register, logout, updateProfile],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

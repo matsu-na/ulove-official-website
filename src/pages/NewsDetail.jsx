@@ -13,10 +13,11 @@ import {
 import ArtCover from '../components/ArtCover.jsx'
 import Reveal from '../components/Reveal.jsx'
 import NewsCard from '../components/NewsCard.jsx'
-import { news } from '../data.js'
+import { useContent } from '../context/ContentContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 
 export default function NewsDetail() {
+  const { news } = useContent()
   const { id } = useParams()
   const article = news.find((item) => item.id === id)
   const [copied, setCopied] = useState(false)

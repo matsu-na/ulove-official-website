@@ -23,6 +23,7 @@ export default function Login() {
   const [form, setForm] = useState({ nickname: '', email: '', password: '' })
   const [errors, setErrors] = useState({})
   const [formError, setFormError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
   const { user, login, register, logout } = useAuth()
   const { toast } = useToast()
   const navigate = useNavigate()
@@ -54,21 +55,24 @@ export default function Login() {
     return Object.keys(next).length === 0
   }
 
-  const submit = (event) => {
+  const submit = async (event) => {
     event.preventDefault()
     setFormError('')
-    if (!validate()) return
+    if (submitting || !validate()) return
+    setSubmitting(true)
     try {
       if (mode === 'login') {
-        const loggedIn = login({ email: form.email, password: form.password, remember })
+        const loggedIn = await login({ email: form.email, password: form.password, remember })
         toast(`欢迎回到山谷，${loggedIn.nickname}`, 'success')
       } else {
-        const created = register(form)
+        const created = await register({ ...form, remember })
         toast(`欢迎抵达山谷，${created.nickname}`, 'success')
       }
       navigate(from, { replace: true })
     } catch (error) {
       setFormError(error.message)
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -100,7 +104,7 @@ export default function Login() {
             </div>
             <div className="auth-visual__actions">
               <Link to="/community" className="btn btn--lime btn--lg">进入社区 <ArrowUpRight size={18} /></Link>
-              <button type="button" className="btn btn--ghost-light btn--lg" onClick={() => { logout(); toast('已退出登录', 'default') }}>
+              <button type="button" className="btn btn--ghost-light btn--lg" onClick={async () => { await logout(); toast('已退出登录', 'default') }}>
                 切换账号
               </button>
             </div>
@@ -276,9 +280,9 @@ export default function Login() {
               </div>
             )}
 
-            <button type="submit" className="btn btn--dark btn--block btn--lg auth-submit">
-              {mode === 'login' ? '登录' : '创建账号'}
-              <ArrowUpRight size={18} />
+            <button type="submit" className="btn btn--dark btn--block btn--lg auth-submit" disabled={submitting}>
+              {submitting ? '连接山谷中…' : mode === 'login' ? '登录' : '创建账号'}
+              {!submitting && <ArrowUpRight size={18} />}
             </button>
 
             {mode === 'register' && (

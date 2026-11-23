@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ArrowUpRight, Mail, Send } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import Logo, { StarMark } from './Logo.jsx'
+import { api } from '../api.js'
 import { useToast } from '../context/ToastContext.jsx'
 
 const footerLinks = [
@@ -27,16 +28,28 @@ const footerLinks = [
 
 export default function Footer() {
   const [email, setEmail] = useState('')
+  const [subscribing, setSubscribing] = useState(false)
   const { toast } = useToast()
 
-  const subscribe = (event) => {
+  const subscribe = async (event) => {
     event.preventDefault()
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       toast('请输入一个有效的邮箱地址', 'error')
       return
     }
-    toast('订阅成功，山谷的新消息会先找到你', 'success')
-    setEmail('')
+    setSubscribing(true)
+    try {
+      const data = await api.post('/newsletter/subscriptions', { email })
+      toast(
+        data.alreadySubscribed ? '这个邮箱已经在山谷来信名单里了' : '订阅成功，山谷的新消息会先找到你',
+        'success',
+      )
+      setEmail('')
+    } catch (error) {
+      toast(error.message, 'error')
+    } finally {
+      setSubscribing(false)
+    }
   }
 
   return (
@@ -83,8 +96,8 @@ export default function Footer() {
               placeholder="your@email.com"
               aria-label="订阅邮箱"
             />
-            <button type="submit" aria-label="订阅">
-              <Send size={17} />
+            <button type="submit" aria-label="订阅" disabled={subscribing}>
+              {subscribing ? <span className="subscribe-spinner" /> : <Send size={17} />}
             </button>
           </form>
           <small>我们讨厌垃圾邮件。随时可以退订。</small>

@@ -13,7 +13,7 @@ import ArtCover from '../components/ArtCover.jsx'
 import Reveal from '../components/Reveal.jsx'
 import SectionHeading from '../components/SectionHeading.jsx'
 import { StarMark } from '../components/Logo.jsx'
-import { stats, timeline } from '../data.js'
+import { useContent } from '../context/ContentContext.jsx'
 
 const values = [
   {
@@ -37,6 +37,8 @@ const values = [
 ]
 
 export default function About() {
+  const { stats, timeline } = useContent()
+
   return (
     <div className="about-page">
       <section className="page-hero about-hero">

@@ -2,15 +2,17 @@ import { useEffect, useState } from 'react'
 import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { countdownTo } from '../utils.js'
-import { EVENT } from '../data.js'
+import { useContent } from '../context/ContentContext.jsx'
 
 export default function Countdown() {
-  const [time, setTime] = useState(() => countdownTo(EVENT.target))
+  const { event } = useContent()
+  const [time, setTime] = useState(() => countdownTo(event.target))
 
   useEffect(() => {
-    const timer = window.setInterval(() => setTime(countdownTo(EVENT.target)), 1000)
+    setTime(countdownTo(event.target))
+    const timer = window.setInterval(() => setTime(countdownTo(event.target)), 1000)
     return () => window.clearInterval(timer)
-  }, [])
+  }, [event.target])
 
   const parts = [
     { value: time.days, label: 'DAYS', cn: '天' },
