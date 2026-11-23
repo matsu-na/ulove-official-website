@@ -8286,3 +8286,278 @@ a:hover > .round-arrow {
     transform: none;
   }
 }
+
+/* ============================================================
+   DESKTOP READABILITY
+   Larger type and a wider canvas for 1080p / 1K displays.
+   ============================================================ */
+@media (min-width: 1280px) {
+  :root {
+    --container: 1440px;
+  }
+
+  /* Navigation and shared type */
+  .announce__inner {
+    min-height: 36px;
+    font-size: 12px;
+  }
+
+  .announce__live { font-size: 9px; }
+  .announce__link { font-size: 11px; }
+
+  .navbar__inner { height: 80px; }
+
+  .brand__type strong { font-size: 18px; }
+  .brand__type span { font-size: 8px; }
+
+  .nav-link {
+    padding: 9px 15px;
+    font-size: 14px;
+  }
+
+  .nav-ticket { font-size: 13.5px; }
+  .user-chip__name { font-size: 13px; }
+  .btn { font-size: 14.5px; }
+  .btn--sm { min-height: 40px; font-size: 13px; }
+  .btn--lg { min-height: 56px; font-size: 15.5px; }
+  .eyebrow { font-size: 11px; letter-spacing: 0.14em; }
+  .text-link { font-size: 13.5px; }
+  .section-heading h2 { font-size: clamp(46px, 4.9vw, 76px); }
+  .section-heading p { font-size: 15.5px; }
+
+  /* Home hero */
+  .hero__kicker { font-size: 10.5px; }
+  .hero__edition { font-size: 11px; }
+  .hero__title { font-size: clamp(72px, 8.4vw, 128px); }
+  .hero__lead { max-width: 610px; font-size: 17px; }
+  .hero__meta span { font-size: 13.5px; }
+  .hero__meta small { font-size: 8.5px; }
+  .hero__meta svg { width: 20px; height: 20px; }
+
+  .ticker__track span { font-size: 14.5px; }
+  .ticker__track svg { width: 18px; height: 18px; }
+
+  .countdown__intro p { font-size: 15.5px; }
+  .countdown__value strong { font-size: clamp(34px, 3.3vw, 52px); }
+  .countdown__unit small { font-size: 8px; }
+  .countdown__cta { font-size: 13px; }
+
+  /* Highlights */
+  .bento-card__head { font-size: 10px; }
+  .bento-card__en { font-size: 9.5px; }
+  .bento-card h3 { font-size: clamp(26px, 2.3vw, 37px); }
+  .bento-card p { font-size: 14px; line-height: 1.68; }
+  .bento-card__tag { font-size: 9.5px; }
+
+  /* Guests */
+  .guest-card__index { font-size: 9px; }
+  .guest-card__tag { font-size: 8.5px; }
+  .guest-card__name h3 { font-size: 22px; }
+  .guest-card__name span { font-size: 9.5px; }
+  .guest-card__info > p { font-size: 13px; }
+  .guests-section__note { font-size: 12px; }
+
+  /* Schedule */
+  .schedule-tab > span { font-size: 9px; }
+  .schedule-tab strong { font-size: 31px; }
+  .schedule-tab small { font-size: 11.5px; }
+  .schedule__panel-head { font-size: 10.5px; }
+  .schedule__legend { font-size: 9.5px; }
+  .schedule-row__time strong { font-size: 20px; }
+  .schedule-row__main h3 { font-size: 17px; }
+  .schedule-row__main p { font-size: 12px; }
+  .schedule-row__guest { font-size: 10px; }
+  .schedule-row__type { font-size: 8px; }
+
+  /* News cards and newsroom */
+  .news-card__meta { font-size: 10px; }
+  .news-card__category { font-size: 9px; }
+  .news-card h3 { font-size: 22px; }
+  .news-card p { font-size: 13.5px; }
+  .news-card__more { font-size: 11.5px; }
+  .news-card--featured h3 { font-size: clamp(30px, 2.7vw, 42px); }
+  .news-card--featured p { font-size: 15px; }
+
+  .page-hero p { font-size: 16.5px; }
+  .news-hero__card-label { font-size: 8.5px; }
+  .news-hero__card > span { font-size: 11.5px; }
+  .news-hero__card-line { font-size: 9px; }
+  .filter-chip { padding: 9px 16px; font-size: 13px; }
+  .search-box input { font-size: 13px; }
+  .news-results-head { font-size: 10.5px; }
+  .news-results-head button { font-size: 10.5px; }
+  .news-feature__body h2 { font-size: clamp(32px, 3.1vw, 50px); }
+  .news-feature__body > p { font-size: 15px; }
+  .news-feature__badge { font-size: 9px; }
+  .news-feature__author strong { font-size: 12.5px; }
+  .news-feature__author small { font-size: 10px; }
+  .newsletter-cta__copy h2 { font-size: 28px; }
+  .newsletter-cta__copy p { font-size: 12px; }
+  .newsletter-cta__form input { font-size: 13px; }
+  .press-strip strong { font-size: 13.5px; }
+  .press-strip p { font-size: 12px; }
+
+  /* Article */
+  .article-breadcrumb { font-size: 10px; }
+  .article-header__meta { font-size: 10.5px; }
+  .article-header h1 { font-size: clamp(46px, 5.4vw, 82px); }
+  .article-header__excerpt { font-size: 17px; }
+  .article-author strong { font-size: 12.5px; }
+  .article-author small { font-size: 9.5px; }
+  .article-share { font-size: 10.5px; }
+  .article-share button { font-size: 10.5px; }
+  .article-cover__caption { font-size: 8.5px; }
+  .article-aside__label { font-size: 9px; }
+  .article-aside__sticky > a { font-size: 12px; }
+  .article-aside__tags > span { font-size: 9px; }
+  .article-aside__tags em { font-size: 9px; }
+  .article-aside__share { font-size: 10.5px; }
+  .article-body { font-size: 17px; }
+  .article-body h2 { font-size: 31px; }
+  .article-body blockquote { font-size: 24px; }
+  .article-signoff { font-size: 12.5px; }
+  .article-next > span:first-child { font-size: 9.5px; }
+  .article-next h3 { font-size: 21px; }
+  .article-related__head h2 { font-size: 29px; }
+
+  /* About */
+  .about-side-note p { font-size: 10.5px; }
+  .stats-band__inner p { font-size: 10.5px; }
+  .manifesto__text p { font-size: 15.5px; }
+  .manifesto__sign { font-size: 10px; }
+  .timeline-row__year { font-size: 28px; }
+  .timeline-row__content h3 { font-size: 18.5px; }
+  .timeline-row__content p { font-size: 13.5px; }
+  .value-card h3 { font-size: 28px; }
+  .value-card p { font-size: 13.5px; }
+  .team-card__copy > p { font-size: 14px; }
+  .team-card__roles span { font-size: 9.5px; }
+  .team-collage__tile--2 p { font-size: 14px; }
+  .about-venue__rows span { font-size: 13.5px; }
+  .about-venue__rows small { font-size: 8.5px; }
+
+  /* Contact */
+  .contact-hero__quick a { font-size: 12px; }
+  .contact-response p { font-size: 11.5px; }
+  .contact-form-card__num { font-size: 11px; }
+  .field > span { font-size: 12px; }
+  .field input,
+  .field textarea { font-size: 13.5px; }
+  .field > small,
+  .field-error { font-size: 10px; }
+  .topic-chip { font-size: 11px; padding: 7px 11px; }
+  .check-field { font-size: 11px; }
+  .contact-form__foot p { font-size: 9px; }
+  .contact-lines a > span { font-size: 9.5px; }
+  .contact-lines a strong { font-size: 12px; }
+  .contact-hours strong { font-size: 11px; }
+  .contact-hours span { font-size: 10px; }
+  .social-list a { font-size: 11.5px; }
+  .faq-item__num { font-size: 10px; }
+  .faq-item__q { font-size: 16px; }
+  .faq-item__answer p { font-size: 14px; }
+  .faq-aside__card p { font-size: 12px; }
+  .arrival-card p { font-size: 13px; }
+  .contact-map__info p { font-size: 11px; }
+  .contact-success > p { font-size: 14px; }
+
+  /* Community */
+  .community-hero__copy > p { font-size: 15.5px; }
+  .community-hero__stats span { font-size: 10.5px; }
+  .member-card__head { font-size: 8.5px; }
+  .member-card__label { font-size: 8px; }
+  .member-card__body > p { font-size: 11.5px; }
+  .member-card__bottom { font-size: 8.5px; }
+  .member-card__cta { font-size: 10px; }
+  .feed-tabs button { font-size: 13px; }
+  .active-topic-bar { font-size: 11.5px; }
+  .composer__head strong { font-size: 13px; }
+  .composer__head span { font-size: 10.5px; }
+  .composer__title { font-size: 18px; }
+  .composer__body { font-size: 13.5px; }
+  .composer__topics > span { font-size: 9.5px; }
+  .composer__topics button { font-size: 10px; }
+  .composer__topics em { font-size: 9px; }
+  .composer__foot > span { font-size: 9.5px; }
+  .post-card__author strong { font-size: 13px; }
+  .post-card__author span { font-size: 9.5px; }
+  .post-card__meta { font-size: 9.5px; }
+  .post-card__topic { font-size: 9px; }
+  .post-card__content h3 { font-size: 22px; }
+  .post-card__content p { font-size: 14px; }
+  .post-action { font-size: 11px; }
+  .post-card__hint { font-size: 9px; }
+  .comments__more { font-size: 10.5px; }
+  .comment__head strong { font-size: 11px; }
+  .comment__head span { font-size: 9px; }
+  .comment p { font-size: 12px; }
+  .comment-form input { font-size: 12px; }
+  .profile-card > p { font-size: 11px; }
+  .profile-card__stats span { font-size: 9px; }
+  .profile-card__foot { font-size: 8px; }
+  .join-card > p { font-size: 11.5px; }
+  .join-card small { font-size: 9.5px; }
+  .aside-block__head h3 { font-size: 12.5px; }
+  .topic-row { font-size: 11.5px; }
+  .topic-row__count { font-size: 9.5px; }
+  .online-list > div { font-size: 11px; }
+  .aside-block__note { font-size: 9.5px; }
+  .rules-card h3 { font-size: 12.5px; }
+  .rules-card li { font-size: 10px; }
+  .rules-card > a { font-size: 9px; }
+  .community-bottom h2 { font-size: 26px; }
+  .community-bottom p { font-size: 12px; }
+
+  /* Login and registration */
+  .auth-visual__content > p { font-size: 14px; }
+  .auth-panel__top { font-size: 9px; }
+  .auth-back { font-size: 11px; }
+  .auth-heading p { font-size: 13px; }
+  .auth-tabs button { font-size: 13px; }
+  .auth-intent { font-size: 11px; }
+  .auth-error { font-size: 11px; }
+  .auth-form__between { margin-top: 7px; }
+  .remember-check { font-size: 10.5px; }
+  .text-button { font-size: 10.5px; }
+  .auth-terms { font-size: 9px; }
+  .demo-card__head { font-size: 10.5px; }
+  .demo-card > p { font-size: 9.5px; }
+  .demo-card code { font-size: 9px; }
+  .demo-card__row button { font-size: 9px; }
+  .auth-switch p,
+  .auth-switch button { font-size: 11px; }
+  .auth-visual__foot span { font-size: 9.5px; }
+
+  /* Footer */
+  .footer-brand > p { font-size: 13.5px; }
+  .footer-socials a { font-size: 12px; }
+  .footer-links h3 { font-size: 9.5px; }
+  .footer-links a { font-size: 13px; }
+  .footer-links p { font-size: 11px; }
+  .footer-subscribe__title { font-size: 13.5px; }
+  .footer-subscribe > p { font-size: 12px; }
+  .subscribe-form input { font-size: 12.5px; }
+  .footer-subscribe small { font-size: 9.5px; }
+  .site-footer__bottom { font-size: 9.5px; }
+
+  /* Final comfort boost for 1080p displays */
+  .nav-link { font-size: 14.5px; }
+  .btn { font-size: 15px; }
+  .hero__lead { font-size: 18px; }
+  .section-heading p { font-size: 16.5px; }
+  .bento-card p { font-size: 14.5px; }
+  .news-card h3 { font-size: 23px; }
+  .news-card p { font-size: 14px; }
+  .news-card--featured p,
+  .news-feature__body > p { font-size: 15.5px; }
+  .field > span { font-size: 13px; }
+  .field input,
+  .field textarea { font-size: 14.5px; }
+  .faq-item__q { font-size: 16.5px; }
+  .faq-item__answer p { font-size: 14.5px; }
+  .arrival-card p { font-size: 13.5px; }
+  .community-hero__copy > p { font-size: 16px; }
+  .post-card__content p { font-size: 14.5px; }
+  .footer-links a { font-size: 13.5px; }
+}
+
