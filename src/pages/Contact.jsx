@@ -95,6 +95,47 @@ export default function Contact() {
         </div>
       </section>
 
+      <section className="section container faq-section">
+        <SectionHeading
+          kicker="01 / FAQ"
+          title={<>你可能想<br />先问问这些</>}
+          description="关于门票、交通、拍摄和现场服务的常见问题。没有找到答案，就写信给我们。"
+        />
+        <div className="faq-layout">
+          <div className="faq-list">
+            {faqs.map((faq, index) => {
+              const open = openFaq === index
+              return (
+                <div className={`faq-item ${open ? 'is-open' : ''}`} key={faq.q}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(open ? -1 : index)}
+                    aria-expanded={open}
+                  >
+                    <span className="faq-item__num">0{index + 1}</span>
+                    <span className="faq-item__q">{faq.q}</span>
+                    <span className="faq-item__toggle">{open ? <Minus size={18} /> : <Plus size={18} />}</span>
+                  </button>
+                  <div className="faq-item__answer">
+                    <div><p>{faq.a}</p></div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <aside className="faq-aside">
+            <div className="faq-aside__card">
+              <span className="faq-aside__mark">?</span>
+              <h3>还是没找到<br />你的答案？</h3>
+              <p>把问题写给我们，人工回复，不用和机器人绕圈。</p>
+              <a href="#contact-form" className="btn btn--lime" onClick={() => document.querySelector('.contact-form-card')?.scrollIntoView({ behavior: 'smooth' })}>
+                写信给山谷 <ArrowUpRight size={16} />
+              </a>
+            </div>
+          </aside>
+        </div>
+      </section>
+
       <section className="container contact-main">
         <Reveal className="contact-form-card" id="contact-form">
           {submitted ? (
@@ -116,7 +157,7 @@ export default function Contact() {
                   <span className="eyebrow"><i /> SEND A MESSAGE</span>
                   <h2>给山谷写一封信</h2>
                 </div>
-                <span className="contact-form-card__num">01 / 03</span>
+                <span className="contact-form-card__num">02 / 03</span>
               </div>
               <form onSubmit={submit} noValidate>
                 <div className="form-grid">
@@ -243,47 +284,6 @@ export default function Contact() {
             </div>
           </Reveal>
         </aside>
-      </section>
-
-      <section className="section container faq-section">
-        <SectionHeading
-          kicker="02 / FAQ"
-          title={<>你可能想<br />先问问这些</>}
-          description="关于门票、交通、拍摄和现场服务的常见问题。没有找到答案，就写信给我们。"
-        />
-        <div className="faq-layout">
-          <div className="faq-list">
-            {faqs.map((faq, index) => {
-              const open = openFaq === index
-              return (
-                <div className={`faq-item ${open ? 'is-open' : ''}`} key={faq.q}>
-                  <button
-                    type="button"
-                    onClick={() => setOpenFaq(open ? -1 : index)}
-                    aria-expanded={open}
-                  >
-                    <span className="faq-item__num">0{index + 1}</span>
-                    <span className="faq-item__q">{faq.q}</span>
-                    <span className="faq-item__toggle">{open ? <Minus size={18} /> : <Plus size={18} />}</span>
-                  </button>
-                  <div className="faq-item__answer">
-                    <div><p>{faq.a}</p></div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-          <aside className="faq-aside">
-            <div className="faq-aside__card">
-              <span className="faq-aside__mark">?</span>
-              <h3>还是没找到<br />你的答案？</h3>
-              <p>把问题写给我们，人工回复，不用和机器人绕圈。</p>
-              <a href="#contact-form" className="btn btn--lime" onClick={() => document.querySelector('.contact-form-card')?.scrollIntoView({ behavior: 'smooth' })}>
-                写信给山谷 <ArrowUpRight size={16} />
-              </a>
-            </div>
-          </aside>
-        </div>
       </section>
 
       <section className="section container arrival-section">
